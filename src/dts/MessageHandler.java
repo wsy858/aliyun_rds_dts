@@ -22,15 +22,14 @@ public class MessageHandler {
 	private Logger log = LoggerFactory.getLogger(MessageHandler.class);
 
 	// 1、处理新增消息
-	public boolean handleInsert(Record record) {
-		boolean finished = false; //是否完成
+	public void handleInsert(Record record) {
 		Connection conn = JDBCUtil.getConnection();
 		PreparedStatement pst = null;
 		try {
 			conn.setAutoCommit(false);
 			FieldData data = getColumnsAndValues(record);
 			// 拼接插入语句
-			String sql = "insert into " + data.getTableName() + " (";
+			String sql = "insert into " + data.getDbName()+"." + data.getTableName() + " (";
 			for (int i = 0; i < data.getColumns().size(); i++) {
 				sql += data.getColumns().get(i) + ",";
 			}
@@ -49,7 +48,6 @@ public class MessageHandler {
 			}
 			pst.execute();
 			conn.commit();
-			finished = true;
 		} catch (SQLException e) {
 			log.error("insert error:",e);
 			try {
@@ -60,12 +58,10 @@ public class MessageHandler {
 		} finally {
 			JDBCUtil.closeConnection(null, pst, conn);
 		}
-		return finished;
 	}
 
 	// 2、处理修改消息
-	public boolean handleUpdate(Record record) {
-		boolean finished = false; //是否完成
+	public void handleUpdate(Record record) {
 		Connection conn = JDBCUtil.getConnection();
 		PreparedStatement pst = null;
 		try {
@@ -73,7 +69,7 @@ public class MessageHandler {
 			FieldData data = getColumnsAndValues(record);
 
 			// 拼接插入语句
-			String sql = "update " + data.getTableName() + " set ";
+			String sql = "update " + data.getDbName()+"." + data.getTableName() + " set ";
 			for (int i = 0; i < data.getColumnCount(); i++) {
 				sql += data.getColumns().get(i) + " = ?,";
 			}
@@ -95,7 +91,6 @@ public class MessageHandler {
 			}
 			pst.execute();
 			conn.commit();
-			finished = true;
 		} catch (SQLException e) {
 			log.error("update error:",e);
 			try {
@@ -106,19 +101,17 @@ public class MessageHandler {
 		} finally {
 			JDBCUtil.closeConnection(null, pst, conn);
 		}
-		return finished;
 	}
 
 	// 3、处理删除消息
-	public boolean handleDelete(Record record) {
-		boolean finished = false; //是否完成
+	public void handleDelete(Record record) {
 		Connection conn = JDBCUtil.getConnection();
 		PreparedStatement pst = null;
 		try {
 			conn.setAutoCommit(false);
 			FieldData data = getColumnsAndValues(record);
 			// 拼接删除语句
-			String sql = "delete from " + data.getTableName() + " where 1=1 ";
+			String sql = "delete from " + data.getDbName()+"." + data.getTableName() + " where 1=1 ";
 			for (int i = 0; i < data.getPrimaryKey().size(); i++) {
 				sql += " and " + data.getPrimaryKey().get(i) + " = ? ";
 			}
@@ -131,7 +124,6 @@ public class MessageHandler {
 			}
 			pst.execute();
 			conn.commit();
-			finished = true;
 		} catch (SQLException e) {
 			log.error("delete error",e);
 			try {
@@ -142,12 +134,10 @@ public class MessageHandler {
 		} finally {
 			JDBCUtil.closeConnection(null, pst, conn);
 		}
-		return finished;
 	}
 
 	// 4、处理ddl消息
-	public boolean handleDdl(Record record) {
-		boolean finished = false; //是否完成
+	public void handleDdl(Record record) {
 		Connection conn = JDBCUtil.getConnection();
 		Statement st = null;
 		FieldData data = getColumnsAndValues(record);
@@ -155,14 +145,18 @@ public class MessageHandler {
 			try {
 				conn.setAutoCommit(false);
 				st = conn.createStatement();
-				//执行ddl语句
+				//添加操作的数据库
+				st.addBatch(" use " + data.getDbName());
+				log.info("ddl sql: "+ " use " + data.getDbName() + "\n");
+				//添加执行ddl语句
 				for (int i = 0; i < data.getValues().size(); i++) {
 					String sql = (String) data.getValues().get(i);
-					log.info("ddl sql: " + sql);
-					st.execute(sql);
+					log.info(sql+"\n");
+					st.addBatch(sql);
 				}
+				//批量执行
+				st.executeBatch();
 				conn.commit();
-				finished = true;
 			} catch (SQLException e) {
 				log.error("ddl error", e);
 				try {
@@ -174,16 +168,16 @@ public class MessageHandler {
 				JDBCUtil.closeConnection(null, st, conn);
 			}
 		}
-		return  finished;
 	}
 
 	// 解析字段信息
 	public FieldData getColumnsAndValues(Record record) {
-		String tableName = record.getTablename();
-		List<String> columns = new ArrayList<String>();
-		List<Object> values = new ArrayList<Object>();
-		List<String> primaryKey = new ArrayList<String>();
-		List<Object> primaryValue = new ArrayList<Object>();
+		String dbName = record.getDbname(); //数据库名
+		String tableName = record.getTablename(); //表名
+		List<String> columns = new ArrayList<String>(); //列名列表
+		List<Object> values = new ArrayList<Object>();  //列值列表
+		List<String> primaryKey = new ArrayList<String>(); //主键名列表
+		List<Object> primaryValue = new ArrayList<Object>(); //主键值列表
 
 		int columnCount; // 列的数量
 		// 当为修改时，每个字段分为修改前的和修改后的
@@ -222,7 +216,7 @@ public class MessageHandler {
 		}
         
 		//封装字段信息对象
-		FieldData data = new FieldData(tableName, columnCount, columns, values,
+		FieldData data = new FieldData(dbName,tableName, columnCount, columns, values,
 				primaryKey, primaryValue);
 		return data;
 	}

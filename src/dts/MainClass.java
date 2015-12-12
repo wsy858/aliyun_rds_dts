@@ -2,6 +2,9 @@ package dts;
 
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import util.Config;
 
 import com.aliyun.drc.client.message.DataMessage.Record;
@@ -12,8 +15,9 @@ import com.aliyun.drc.clusterclient.RegionContext;
 import com.aliyun.drc.clusterclient.message.ClusterMessage;
 
 public class MainClass {
+	private static Logger log = LoggerFactory.getLogger(MainClass.class);
 	// 消费者
-	private ClusterClient client = null;
+	private  ClusterClient client = null;
 
 	public void initClent() {
 		// 创建一个context
@@ -32,8 +36,9 @@ public class MainClass {
 			client.askForGUID(Config.guid);
 			// 启动后台线程， 注意这里不会阻塞， 主线程不能退出
 			client.start();
+			log.info("数据消费服务启动成功, 正在等待增量数据...");
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error(e.getMessage(), e);
 		}
 
 	}
@@ -48,13 +53,11 @@ public class MainClass {
 				Record record = message.getRecord();
 				try {
 					//处理订阅到的消息
-					boolean finished = messageHandler(record);
-					// 消费完数据后向DTS汇报ACK，必须调用
-					if(finished){
-					   message.ackAsConsumed();
-					}
+					messageHandler(record);
+					//消费完数据后向DTS汇报ACK，必须调用
+					message.ackAsConsumed();
 				} catch (Exception e) {
-					e.printStackTrace();
+					log.error(e.getMessage(), e);;
 				}
 			}
 		}
@@ -67,26 +70,24 @@ public class MainClass {
 	
 	
 	//消息处理
-	public boolean messageHandler(Record record){
-		boolean finished = false;
+	public void messageHandler(Record record){
 		MessageHandler handler = new MessageHandler();
 		switch (record.getOpt()) {
 		case INSERT:
-			finished = handler.handleInsert(record);
+			handler.handleInsert(record);
 			break;
 		case UPDATE:
-			finished = handler.handleUpdate(record);
+			handler.handleUpdate(record);
 			break;
 		case DELETE:
-			finished = handler.handleDelete(record);
+			handler.handleDelete(record);
 			break;
 		case DDL:
-			finished = handler.handleDdl(record);
+			handler.handleDdl(record);
 			break;
 		default:
 			break;
 		}
-		return finished;
 	}
 	
 

@@ -4,6 +4,7 @@ import java.util.List;
 
 //字段信息
 public class FieldData {
+	private String dbName; //数据库名
 	private String tableName; // 表名
 	private int columnCount; //列的数量
 	private List<String> columns; // 列名列表
@@ -15,10 +16,11 @@ public class FieldData {
 		super();
 	}
 
-	public FieldData(String tableName,int columnCount, List<String> columns,
+	public FieldData(String dbName,String tableName,int columnCount, List<String> columns,
 			List<Object> values, List<String> primaryKey,
 			List<Object> primaryValue) {
 		super();
+		this.dbName = dbName;
 		this.tableName = tableName;
 		this.columnCount = columnCount;
 		this.columns = columns;
@@ -26,7 +28,14 @@ public class FieldData {
 		this.primaryKey = primaryKey;
 		this.primaryValue = primaryValue;
 	}
+	
+	public String getDbName() {
+		return dbName;
+	}
 
+	public void setDbName(String dbName) {
+		this.dbName = dbName;
+	}
 
 	public String getTableName() {
 		return tableName;
